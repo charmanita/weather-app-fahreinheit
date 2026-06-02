@@ -33,10 +33,15 @@ body{
 
 #content,
 #main-weather,
-#sidebar{
+#sidebar {
     display: flex;
+    flex-direction: column; /* ⬅️ CRITICAL: Forces elements to stack vertically top to bottom */
+    background-color: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(20px);
+    width: 400px;
+    padding: 40px;
+    box-sizing: border-box; /* Prevents container sizing blowouts from padding additions */
 }
-
 #content{
     height: 100vh;
 }

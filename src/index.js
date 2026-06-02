@@ -1,160 +1,204 @@
+// ============================================
+// WEATHER APP INDEX.JS
+// ============================================
+
 import loadPage from './loadPage';
 import './style.css';
 import loadMainWeatherContainer from './loadMainWeatherContainer';
 import createSidebar from './createSidebar';
 
-document.body.appendChild(loadPage());
-const main = document.querySelector('#main');
-const sidebar = document.querySelector('#sidebar');
-main.appendChild(loadMainWeatherContainer());
+let currentUnits = 'metric'; // Default: Celsius
+let currentCity = 'Tokyo';   // Track the last successfully searched city
 
-const temperatureDiv = document.querySelector('#temperature');
-const cityDiv = document.querySelector('#city');
-const hourDiv = document.querySelector('#hour');
-const minuteDiv = document.querySelector('#minute');
-const dayDiv = document.querySelector('#day');
-const dateDiv = document.querySelector('#date');
-const monthDiv = document.querySelector('#month');
-const mainWeather = document.querySelector('#main-weather');
-const weatherImg = document.querySelector('#weather-icon');
+// ============================================
+// WEATHER API FETCH
+// ============================================
+async function getWeather(location, units) {
+    try {
+        let response;
+        if (typeof location === 'string') {
+            response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=${units}&appid=2a3e6417c89470aaa7587fa599ac7255`);
+        } else if (Array.isArray(location)) {
+            response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${location[0]}&lon=${location[1]}&units=${units}&appid=2a3e6417c89470aaa7587fa599ac7255`);
+        } else {
+            throw new Error("Invalid location parameters");
+        }
 
-const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const months = ['Jan', 'Feb', 'March', 'April', 'May', 'June', 'July', 'Aug', 'Sept', 'Octr', 'Nov', 'Dec'];
-const weather = document.querySelector('#weather');
-
-async function getWeather(location) {
-  try {
-    let response;
-    if (typeof location === 'string') {
-      response = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&APPID=2a3e6417c89470aaa7587fa599ac7255`);
-    } else {
-      response = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${location[0]}&lon=${location[1]}&units=metric&appid=2a3e6417c89470aaa7587fa599ac7255`);
+        const weatherData = await response.json();
+        return weatherData;
+    } catch (error) {
+        throw new Error(error.message || "Weather data could not be fetched.");
     }
-
-    const weatherData = await response.json();
-    console.log(weatherData);
-    return weatherData;
-  } catch (error) {
-    return error;
-  }
 }
 
+// ============================================
+// DROPDOWN CREATION FUNCTION
+// ============================================
+function appendUnitDropdown(sidebarElement) {
+    const dropdownContainer = document.createElement('div');
+    dropdownContainer.setAttribute('id', 'dropdown-container');
+    dropdownContainer.style.width = '100%';
+    dropdownContainer.style.marginBottom = '20px';
+
+    const unitSelector = document.createElement('select');
+    unitSelector.setAttribute('id', 'unit-selector');
+    
+    // Style dropdown inline to ensure visibility over backgrounds
+    unitSelector.style.width = '100%';
+    unitSelector.style.padding = '10px';
+    unitSelector.style.background = 'rgba(0, 0, 0, 0.5)';
+    unitSelector.style.color = 'white';
+    unitSelector.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+    unitSelector.style.borderRadius = '4px';
+    unitSelector.style.fontSize = '16px';
+    unitSelector.style.cursor = 'pointer';
+    unitSelector.style.outline = 'none';
+    
+    const celsiusOption = document.createElement('option');
+    celsiusOption.value = 'metric';
+    celsiusOption.textContent = 'Celsius (°C)';
+    celsiusOption.style.background = '#1e1e2f';
+    
+    const fahrenheitOption = document.createElement('option');
+    fahrenheitOption.value = 'imperial';
+    fahrenheitOption.textContent = 'Fahrenheit (°F)';
+    fahrenheitOption.style.background = '#1e1e2f';
+    
+    unitSelector.appendChild(celsiusOption);
+    unitSelector.appendChild(fahrenheitOption);
+    
+    unitSelector.value = currentUnits;
+    
+    // Update unit states and refresh UI smoothly
+    unitSelector.addEventListener('change', (e) => {
+        currentUnits = e.target.value;
+        setData(currentCity); 
+    });
+    
+    dropdownContainer.appendChild(unitSelector);
+    
+    // Inserts the dropdown cleanly at the top of the sidebar panel
+    sidebarElement.insertBefore(dropdownContainer, sidebarElement.firstChild);
+}
+
+// ============================================
+// WEATHER DISPLAY FUNCTION
+// ============================================
+async function setData(location) {
+    try {
+        const weatherData = await getWeather(location, currentUnits);
+        
+        const unitSuffix = currentUnits === 'metric' ? '°C' : '°F';
+        const windSuffix = currentUnits === 'metric' ? 'm/s' : 'mph';
+
+        // Elements are queried here safely AFTER they are attached to the page body
+        const tempDiv = document.querySelector('#temperature');
+        const cityDiv = document.querySelector('#city');
+        const iconImg = document.querySelector('#weather-icon');
+        const weatherTextDiv = document.querySelector('#weather');
+
+        if (tempDiv) tempDiv.textContent = `${Math.ceil(weatherData.main.temp)}${unitSuffix}`;
+        if (cityDiv) cityDiv.textContent = weatherData.name;
+        if (iconImg) iconImg.src = `https://openweathermap.org/img/wn/${weatherData.weather[0].icon}@2x.png`;
+        if (weatherTextDiv) weatherTextDiv.textContent = weatherData.weather[0].main;
+        
+        currentCity = weatherData.name;
+        populateSidebar(weatherData, unitSuffix, windSuffix);
+        
+        const date = getDate(weatherData.timezone);
+        setTime(date);
+
+    } catch (error) {
+        console.error("Error setting weather display:", error);
+    }
+}
+
+// ============================================
+// TIME HANDLERS
+// ============================================
 function getDate(timeOffSet) {
-  const date = new Date();
-  const localTime = date.getTime();
-  const localOffset = date.getTimezoneOffset() * 60000;
-  const utc = localTime + localOffset;
-  const location = utc + (1000 * timeOffSet);
-  const newDate = new Date(location);
-  return newDate;
+    const date = new Date();
+    const localTime = date.getTime();
+    const localOffset = date.getTimezoneOffset() * 60000;
+    const utc = localTime + localOffset;
+    const location = utc + (1000 * timeOffSet);
+    return new Date(location);
 }
 
 function setTime(date) {
-  const hours = date.getHours().toString();
-  const minutes = date.getMinutes().toString();
-  hourDiv.textContent = (hours.length >= 2) ? `${hours}` : `0${hours}`;
-  minuteDiv.textContent = (minutes.length >= 2) ? `:${minutes}` : `:0${minutes}`;
-  dayDiv.textContent = `${weekday[date.getDay()]}-`;
-  dateDiv.textContent = `${date.getDate()}-`;
-  monthDiv.textContent = months[date.getMonth()];
+    const hours = date.getHours().toString();
+    const minutes = date.getMinutes().toString();
+    
+    const hourDiv = document.querySelector('#hour');
+    const minuteDiv = document.querySelector('#minute');
+    const dayDiv = document.querySelector('#day');
+    const dateDiv = document.querySelector('#date');
+    const monthDiv = document.querySelector('#month');
+    
+    const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const months = ['Jan', 'Feb', 'March', 'April', 'May', 'June', 'July', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
+    
+    if (hourDiv) hourDiv.textContent = (hours.length >= 2) ? hours : `0${hours}`;
+    if (minuteDiv) minuteDiv.textContent = (minutes.length >= 2) ? `:${minutes}` : `:0${minutes}`;
+    if (dayDiv) dayDiv.textContent = `${weekday[date.getDay()]}-`;
+    if (dateDiv) dateDiv.textContent = `${date.getDate()}-`;
+    if (monthDiv) monthDiv.textContent = months[date.getMonth()];
 }
 
-sidebar.appendChild(createSearch());
-const weatherTitle = document.createElement('div');
-weatherTitle.textContent = 'Weather Details';
-weatherTitle.setAttribute('id', 'weather-title');
-sidebar.appendChild(weatherTitle);
-createSidebar();
-const sidebarValues = document.querySelector('#sidebar-container');
-
-function createSearch() {
-  const searchContainer = document.createElement('div');
-  const search = document.createElement('input');
-  const searchBtn = document.createElement('button');
-
-  searchBtn.setAttribute('id', 'search-btn');
-  search.setAttribute('id', 'search-bar');
-  search.setAttribute('placeholder', 'Enter city name');
-  searchBtn.addEventListener('click', () => {
-    const location = search.value;
-    setData(location);
-    main.removeChild(mainWeather);
-    main.appendChild(mainWeather);
-    sidebar.removeChild(sidebarValues);
-    sidebar.appendChild(sidebarValues);
-  });
-
-  searchContainer.appendChild(search);
-  searchContainer.appendChild(searchBtn);
-  searchContainer.setAttribute('id', 'search-container');
-  return searchContainer;
+// ============================================
+// SIDEBAR POPULATE
+// ============================================
+function populateSidebar(weatherData, unitSuffix, windSuffix) {
+    const boxValues = document.querySelectorAll('#sidebar-container #value'); 
+    const data = [
+        `${Math.ceil(weatherData.main.feels_like)}${unitSuffix}`, 
+        `${Math.ceil(weatherData.main.temp_max)}${unitSuffix}`, 
+        `${Math.ceil(weatherData.main.temp_min)}${unitSuffix}`,
+        `${weatherData.main.humidity}%`, 
+        `${weatherData.main.pressure} hPa`,
+        `${weatherData.wind.speed} ${windSuffix}`
+    ];
+    
+    for (let index = 0; index < data.length && index < boxValues.length; index += 1) {
+        boxValues[index].textContent = data[index];
+    }
 }
 
-function populateSidebar(weatherData) {
-  const boxValues = document.querySelectorAll('#value');
-  const data = [`${Math.ceil(weatherData.main.feels_like)}°`, `${Math.ceil(weatherData.main.temp_max)}°`, `${Math.ceil(weatherData.main.temp_min)}°`,
-    `${weatherData.main.humidity}%`, `${weatherData.main.humidity}hPa`, `${weatherData.wind.speed}m/s`];
-  for (let index = 0; index < data.length; index += 1) {
-    const value = data[index];
-    boxValues[index].textContent = value;
-  }
-}
-
-function setBackground(sunrise, sunset) {
-  console.log(hourDiv.textContent);
-  if (+hourDiv.textContent > +sunrise && +hourDiv.textContent < +sunset) {
-    document.body.classList.add('morning');
-    document.body.classList.remove('night');
-  } else {
-    document.body.classList.add('night');
-    document.body.classList.remove('morning');
-  }
-}
-
-async function setData(location) {
-  try {
-    const weatherData = await getWeather(location);
-    const temp = Math.ceil(weatherData.main.temp);
-    temperatureDiv.textContent = `${temp}°`;
-    const imgID = weatherData.weather[0].icon;
-    weatherImg.src = `https://openweathermap.org/img/wn/${imgID}@2x.png`;
-    cityDiv.textContent = weatherData.name;
-    const date = getDate(weatherData.timezone);
-    setTime(date);
-    weather.textContent = weatherData.weather[0].main;
-    populateSidebar(weatherData);
-
-    // changing bg
-    const curDate = new Date();
-    // in hours
-    const localOffset = -curDate.getTimezoneOffset() / 60;
-    const locationOffset = weatherData.timezone / 3600;
-    const hourDif = localOffset - locationOffset;
-
-    const sunrise = new Date(weatherData.sys.sunrise * 1000 - hourDif * 3600000);
-    const sunset = new Date(weatherData.sys.sunset * 1000 - hourDif * 3600000);
-
-    const sunriseHour = sunrise.getHours();
-    const sunsetHour = sunset.getHours();
-
-    setBackground(sunriseHour, sunsetHour);
-    console.log(sunrise);
-    console.log(sunsetHour);
-    console.log(sunriseHour);
-  } catch (error) {
-    alert('Invalid City!');
-  }
-}
-
-function setPosition(position) {
-  setData([position.coords.latitude, position.coords.longitude]);
-}
-
+// ============================================
+// GEOLOCATION ROUTER
+// ============================================
 function getLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(setPosition);
-  }
-  setData('Tokyo');
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                await setData([lat, lon]);
+            },
+            (error) => {
+                setData('Tokyo');
+            }
+        );
+    } else {
+        setData('Tokyo');
+    }
+}
+
+// ============================================
+// APP SETUP MOUNT LIFE-CYCLE
+// ============================================
+document.body.appendChild(loadPage());
+
+const mainContainer = document.querySelector('#main');
+const sidebarContainer = document.querySelector('#sidebar');
+
+if (mainContainer) {
+    mainContainer.appendChild(loadMainWeatherContainer());
+}
+
+if (sidebarContainer) {
+    createSidebar(); // Sets up your info row divs from your module first
+    appendUnitDropdown(sidebarContainer); // Injects our new unit selection dropdown immediately above them
 }
 
 getLocation();

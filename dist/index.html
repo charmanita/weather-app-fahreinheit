@@ -2,12 +2,394 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather App</title>
-    <script src="./main.js" defer></script>
+    <style>
+        * {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+                         'Helvetica Neue', Arial, sans-serif;
+            color: white;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        @keyframes fade {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        body.morning {
+            background: url('https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?w=1600&q=80') no-repeat center center;
+            background-size: cover;
+        }
+        body.night {
+            background: url('https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1600&q=80') no-repeat center center;
+            background-size: cover;
+        }
+
+        #content {
+            display: flex;
+            height: 100vh;
+        }
+
+        #main {
+            background-color: rgba(255,255,255,0);
+            padding: 150px;
+            display: flex;
+            width: auto;
+            flex: 1;
+            align-items: flex-end;
+        }
+
+        #main-weather {
+            animation: fade 2s linear;
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+            height: 120px;
+            align-items: flex-end;
+        }
+
+        #sidebar {
+            display: flex;
+            flex-direction: column;
+            width: clamp(100px, 40vw, 600px);
+            padding: 50px;
+            gap: 16px;
+            background-color: rgba(20, 20, 20, 0.3);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            overflow-y: auto;
+        }
+
+        #sidebar * {
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 1px;
+        }
+
+        #sidebar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            animation: fade .8s linear;
+        }
+
+        #location-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        #day-details,
+        #day-details div {
+            display: flex;
+        }
+        #day-details {
+            gap: 16px;
+            font-size: 20px;
+        }
+
+        #weather { font-size: 20px; }
+
+        #temperature {
+            font-size: 120px;
+            height: 120px;
+            line-height: 1;
+        }
+
+        #city {
+            font-size: 60px;
+            text-align: start;
+        }
+
+        #box-information {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        #search-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        #search-btn {
+            width: 20px;
+            height: 20px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.6)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        #search-btn:hover {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+        }
+
+        #search-bar {
+            background-color: transparent;
+            width: 100%;
+            height: 30px;
+            border: none;
+            border-bottom: 2px solid rgba(255,255,255,0.2);
+            transition: border-color 0.2s;
+            font-size: 14px;
+            letter-spacing: 1px;
+            color: rgba(255,255,255,0.5);
+        }
+        #search-bar::placeholder { color: rgba(255,255,255,0.4); letter-spacing: 1px; }
+        #search-bar:focus {
+            color: white;
+            outline: none;
+            border-color: white;
+        }
+        #search-bar.error { border-color: red; }
+
+        #value, #weather-title { color: white; }
+
+        #weather-title {
+            margin-bottom: 4px;
+            font-size: 24px;
+        }
+
+        #weather-icon { width: 60px; }
+
+        #weather-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .sidebar-select {
+            width: 100%;
+            padding: 8px 10px;
+            background: rgba(0,0,0,0.4);
+            color: rgba(255,255,255,0.6);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            letter-spacing: 1px;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.4)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+        }
+        .sidebar-select option { background: #1a1a2e; color: white; }
+    </style>
 </head>
-<body>
-    
+<body class="morning">
+
+<div id="content">
+    <div id="main">
+        <div id="main-weather">
+            <div id="temperature">––</div>
+            <div id="location-details">
+                <div id="city">––––––</div>
+                <div id="day-details">
+                    <div id="time">
+                        <div id="hour">––</div>
+                        <div id="minute">:––</div>
+                    </div>
+                    <div id="fullDate">
+                        <div id="day">–––-</div>
+                        <div id="date">––-</div>
+                        <div id="month">–––</div>
+                    </div>
+                </div>
+            </div>
+            <div id="weather-container">
+                <img id="weather-icon" src="" alt="" />
+                <div id="weather">–––––</div>
+            </div>
+        </div>
+    </div>
+    <div id="sidebar"></div>
+</div>
+
+<script>
+    const API_KEY = '2a3e6417c89470aaa7587fa599ac7255';
+    let currentUnits = 'metric';
+    let currentCity = 'Tokyo';
+    let currentTimeFormat = '24';
+    let lastDate = null;
+
+    function buildSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        sidebar.innerHTML = '';
+
+        // Search
+        const searchContainer = document.createElement('div');
+        searchContainer.setAttribute('id', 'search-container');
+        const searchBar = document.createElement('input');
+        searchBar.setAttribute('id', 'search-bar');
+        searchBar.setAttribute('type', 'text');
+        searchBar.setAttribute('placeholder', 'Search city...');
+        const searchBtn = document.createElement('button');
+        searchBtn.setAttribute('id', 'search-btn');
+        searchContainer.appendChild(searchBar);
+        searchContainer.appendChild(searchBtn);
+        sidebar.appendChild(searchContainer);
+
+        // Unit selector
+        const unitSel = document.createElement('select');
+        unitSel.setAttribute('id', 'unit-selector');
+        unitSel.className = 'sidebar-select';
+        unitSel.innerHTML = `<option value="metric">Celsius (°C)</option><option value="imperial">Fahrenheit (°F)</option>`;
+        sidebar.appendChild(unitSel);
+
+        // Time format selector
+        const timeSel = document.createElement('select');
+        timeSel.setAttribute('id', 'time-format-selector');
+        timeSel.className = 'sidebar-select';
+        timeSel.innerHTML = `<option value="24">24-hour (Military)</option><option value="12">12-hour (AM/PM)</option>`;
+        sidebar.appendChild(timeSel);
+
+        // Heading
+        const title = document.createElement('div');
+        title.setAttribute('id', 'weather-title');
+        title.textContent = 'Weather Details';
+        sidebar.appendChild(title);
+
+        // Stat rows
+        const container = document.createElement('div');
+        container.setAttribute('id', 'sidebar-container');
+        ['Feels Like','High','Low','Humidity','Pressure','Wind'].forEach(label => {
+            const row = document.createElement('div');
+            row.setAttribute('id', 'box-information');
+            const key = document.createElement('div');
+            key.textContent = label;
+            const val = document.createElement('div');
+            val.setAttribute('id', 'value');
+            val.textContent = '–';
+            row.appendChild(key);
+            row.appendChild(val);
+            container.appendChild(row);
+        });
+        sidebar.appendChild(container);
+
+        searchBtn.addEventListener('click', doSearch);
+        searchBar.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+        unitSel.addEventListener('change', e => { currentUnits = e.target.value; setData(currentCity); });
+        timeSel.addEventListener('change', e => { currentTimeFormat = e.target.value; if (lastDate) setTime(lastDate); });
+    }
+
+    function doSearch() {
+        const val = document.getElementById('search-bar').value.trim();
+        if (val) { document.getElementById('search-bar').classList.remove('error'); setData(val); }
+    }
+
+    async function getWeather(location, units) {
+        const url = typeof location === 'string'
+            ? `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=${units}&appid=${API_KEY}`
+            : `https://api.openweathermap.org/data/2.5/weather?lat=${location[0]}&lon=${location[1]}&units=${units}&appid=${API_KEY}`;
+        const r = await fetch(url);
+        const data = await r.json();
+        if (data.cod !== 200) throw new Error(data.message || 'City not found');
+        return data;
+    }
+
+    function getDate(timeOffset) {
+        const now = new Date();
+        return new Date(now.getTime() + now.getTimezoneOffset() * 60000 + 1000 * timeOffset);
+    }
+
+    function setTime(date) {
+        lastDate = date;
+        const rawH = date.getHours();
+        const m = date.getMinutes().toString();
+        const weekday = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const months = ['Jan','Feb','March','April','May','June','July','Aug','Sept','Oct','Nov','Dec'];
+
+        document.body.className = (rawH >= 6 && rawH < 20) ? 'morning' : 'night';
+
+        let hourStr, ampmStr = '';
+        if (currentTimeFormat === '12') {
+            const period = rawH >= 12 ? 'PM' : 'AM';
+            hourStr = String(rawH % 12 || 12);
+            ampmStr = ' ' + period;
+        } else {
+            hourStr = rawH.toString().length >= 2 ? rawH.toString() : '0' + rawH;
+        }
+        const minStr = m.length >= 2 ? m : '0' + m;
+
+        const h = document.getElementById('hour');
+        const min = document.getElementById('minute');
+        const day = document.getElementById('day');
+        const dt  = document.getElementById('date');
+        const mo  = document.getElementById('month');
+
+        if (h)   h.textContent   = hourStr;
+        if (min) min.textContent = `:${minStr}${ampmStr}`;
+        if (day) day.textContent = `${weekday[date.getDay()]}-`;
+        if (dt)  dt.textContent  = `${date.getDate()}-`;
+        if (mo)  mo.textContent  = months[date.getMonth()];
+    }
+
+    function populateSidebar(data, unitSuffix, windSuffix) {
+        const values = [
+            `${Math.ceil(data.main.feels_like)}${unitSuffix}`,
+            `${Math.ceil(data.main.temp_max)}${unitSuffix}`,
+            `${Math.ceil(data.main.temp_min)}${unitSuffix}`,
+            `${data.main.humidity}%`,
+            `${data.main.pressure} hPa`,
+            `${data.wind.speed} ${windSuffix}`,
+        ];
+        document.querySelectorAll('#sidebar-container #value')
+            .forEach((box, i) => { if (values[i] !== undefined) box.textContent = values[i]; });
+    }
+
+    async function setData(location) {
+        const searchBar = document.getElementById('search-bar');
+        try {
+            if (searchBar) searchBar.classList.remove('error');
+            const data = await getWeather(location, currentUnits);
+            const unitSuffix = currentUnits === 'metric' ? '°C' : '°F';
+            const windSuffix = currentUnits === 'metric' ? 'm/s' : 'mph';
+
+            const temp    = document.getElementById('temperature');
+            const city    = document.getElementById('city');
+            const icon    = document.getElementById('weather-icon');
+            const weather = document.getElementById('weather');
+
+            if (temp)    temp.textContent    = `${Math.ceil(data.main.temp)}${unitSuffix}`;
+            if (city)    city.textContent    = data.name;
+            if (icon)    icon.src            = `https://openweathermap.org/img/wn/${data.weather[0].icon}@2x.png`;
+            if (weather) weather.textContent = data.weather[0].main;
+
+            currentCity = data.name;
+            populateSidebar(data, unitSuffix, windSuffix);
+            setTime(getDate(data.timezone));
+        } catch (err) {
+            if (searchBar) searchBar.classList.add('error');
+            console.error(err.message);
+        }
+    }
+
+    buildSidebar();
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            pos => setData([pos.coords.latitude, pos.coords.longitude]),
+            ()  => setData('Tokyo')
+        );
+    } else {
+        setData('Tokyo');
+    }
+</script>
 </body>
 </html>
